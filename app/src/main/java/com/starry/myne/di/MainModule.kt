@@ -25,6 +25,7 @@ import com.starry.myne.helpers.PreferenceUtil
 import com.starry.myne.helpers.ZenModeManager
 import com.starry.myne.database.library.LibraryDao
 import com.starry.myne.helpers.book.BookDownloader
+import com.starry.myne.helpers.book.MassDownloadManager
 import com.starry.myne.helpers.book.StorageManager
 import com.starry.myne.ui.screens.welcome.viewmodels.WelcomeDataStore
 import dagger.Module
@@ -85,6 +86,14 @@ class MainModule {
         @ApplicationContext context: Context,
         storageManager: StorageManager
     ) = BookDownloader(context, storageManager)
+
+    @Singleton
+    @Provides
+    fun provideMassDownloadManager(
+        bookAPI: BookAPI,
+        storageManager: StorageManager,
+        libraryDao: LibraryDao
+    ) = MassDownloadManager(bookAPI, storageManager, libraryDao)
 
     @Singleton
     @Provides

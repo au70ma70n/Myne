@@ -46,4 +46,6 @@ sealed class Screens(val route: String) {
     data object OSLScreen : Screens("osl_screen")
 
     data object AboutScreen : Screens("about_screen")
+
+    data object MassDownloadScreen : Screens("mass_download_screen")
 }

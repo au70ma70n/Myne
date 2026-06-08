@@ -31,6 +31,7 @@ import com.starry.myne.ui.screens.categories.composables.CategoryDetailScreen
 import com.starry.myne.ui.screens.detail.composables.BookDetailScreen
 import com.starry.myne.ui.screens.home.composables.HomeScreen
 import com.starry.myne.ui.screens.library.composables.LibraryScreen
+import com.starry.myne.ui.screens.massdownload.composables.MassDownloadScreen
 import com.starry.myne.ui.screens.reader.detail.ReaderDetailScreen
 import com.starry.myne.ui.screens.settings.composables.AboutScreen
 import com.starry.myne.ui.screens.settings.composables.OSLScreen
@@ -64,12 +65,16 @@ fun NavGraph(
             route = BottomBarScreen.Home.route,
             enterTransition = { bottomNavEnter() },
             exitTransition = {
-                if (initialState.destination.route == Screens.BookDetailScreen.route) {
+                if (initialState.destination.route == Screens.BookDetailScreen.route
+                    || initialState.destination.route == Screens.MassDownloadScreen.route
+                ) {
                     exitTransition()
                 } else bottomNavExit()
             },
             popEnterTransition = {
-                if (initialState.destination.route == Screens.BookDetailScreen.route) {
+                if (initialState.destination.route == Screens.BookDetailScreen.route
+                    || initialState.destination.route == Screens.MassDownloadScreen.route
+                ) {
                     popEnterTransition()
                 } else bottomNavPopEnter()
             },
@@ -203,6 +208,17 @@ fun NavGraph(
             popExitTransition = { popExitTransition() },
         ) {
             AboutScreen(navController = navController)
+        }
+
+        /** Mass Download Screen */
+        composable(
+            route = Screens.MassDownloadScreen.route,
+            enterTransition = { enterTransition() },
+            exitTransition = { exitTransition() },
+            popEnterTransition = { popEnterTransition() },
+            popExitTransition = { popExitTransition() },
+        ) {
+            MassDownloadScreen(navController = navController)
         }
     }
 }

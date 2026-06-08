@@ -31,6 +31,7 @@
     <string name="home_header">All Books</string>
     <string name="home_language_icon_desc">Sort by language</string>
     <string name="home_search_icon_desc">Search books</string>
+    <string name="mass_download_icon_desc">Mass download</string>
     <string name="language_menu_title">Browse by language</string>
 
     <!-- Categories screen. -->
@@ -59,6 +60,12 @@
     <!-- Library screen. -->
     <string name="library_header">Library</string>
     <string name="empty_library">Nothing Here!</string>
+    <string name="library_selected_count">%d selected</string>
+    <string name="library_select_all">Select All</string>
+    <string name="library_delete_selected_title">Delete %d books?</string>
+    <string name="library_delete_selected_desc">This will permanently delete the selected books from your library and storage.</string>
+    <string name="library_delete_selected_success">Deleted %d books</string>
+    <string name="library_no_filter_results">No books match the selected filters</string>
     <string name="import_button_text">Import</string>
     <string name="import_button_onboarding">Import your own books!</string>
     <string name="import_button_onboarding_desc">Now you can import your own EPUB books and read them in Myne.</string>
@@ -182,6 +189,35 @@
     <string name="link_telegram_desc">Hang out with us on Telegram!</string>
     <string name="link_support">Support Development</string>
     <string name="link_support_desc">Think I deserve cookies? Click here!</string>
+
+    <!-- Mass Download Screen -->
+    <string name="mass_download_header">Mass Download</string>
+    <string name="mass_download_description">Download all available books matching your current language filter.</string>
+    <string name="mass_download_language_label">Language</string>
+    <string name="mass_download_change">Change</string>
+    <string name="mass_download_start">Start Download</string>
+    <string name="mass_download_warning">Keep the app open during download. If interrupted, restart to resume where you left off.</string>
+    <string name="mass_download_fetching">Fetching catalog…</string>
+    <string name="mass_download_pages_loaded">%1$d pages loaded, %2$d books found</string>
+    <string name="mass_download_catalog_ready">Catalog scan complete</string>
+    <string name="mass_download_books_found">%d books available for download</string>
+    <string name="mass_download_books_already_downloaded">%d books already in library (will be skipped)</string>
+    <string name="mass_download_books_to_download">%d books to download</string>
+    <string name="mass_download_estimated_size">Estimated size: %s</string>
+    <string name="mass_download_estimated_note">Based on average of ~300 KB per book</string>
+    <string name="mass_download_proceed">Proceed with Download</string>
+    <string name="mass_download_currently_downloading">Currently downloading:</string>
+    <string name="mass_download_stat_downloaded">Downloaded</string>
+    <string name="mass_download_stat_failed">Failed</string>
+    <string name="mass_download_stat_skipped">Skipped</string>
+    <string name="mass_download_complete">Download complete!</string>
+    <string name="mass_download_retry_failed">Retry Failed (%d)</string>
+    <string name="mass_download_pause">Pause</string>
+    <string name="mass_download_resume">Resume</string>
+    <string name="mass_download_cancel">Cancel</string>
+    <string name="mass_download_cancelling">Cancelling…</string>
+    <string name="mass_download_paused_label">Download paused</string>
+    <string name="mass_download_done">Done</string>
 
     <!-- Open source libraries screen -->
     <string name="open_source_licenses_header">Licenses</string>

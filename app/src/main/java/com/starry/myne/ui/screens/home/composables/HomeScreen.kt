@@ -47,6 +47,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -205,6 +206,8 @@ private fun HomeScreenScaffold(
                                 viewModel.onAction(UserAction.SearchIconClicked)
                             }, onLanguageIconClicked = {
                                 showLanguageSheet.value = true
+                            }, onMassDownloadClicked = {
+                                navController.navigate(Screens.MassDownloadScreen.route)
                             })
                         sysBackButtonState.value = false
                     }
@@ -402,6 +405,7 @@ private fun HomeTopAppBar(
     bookLanguage: BookLanguage,
     onSearchIconClicked: () -> Unit,
     onLanguageIconClicked: () -> Unit,
+    onMassDownloadClicked: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -418,6 +422,14 @@ private fun HomeTopAppBar(
             fontFamily = pacificoFont
         )
         Spacer(modifier = Modifier.weight(1f))
+        IconButton(onClick = onMassDownloadClicked) {
+            Icon(
+                imageVector = Icons.Outlined.CloudDownload,
+                contentDescription = stringResource(id = R.string.mass_download_icon_desc),
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(28.dp)
+            )
+        }
         IconButton(onClick = onLanguageIconClicked) {
             Icon(
                 imageVector = Icons.Filled.Translate,
