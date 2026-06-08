@@ -274,7 +274,8 @@ private fun BookDetailContents(
                                     context = context,
                                     internalReader = viewModel.getInternalReaderSetting(),
                                     libraryItem = libraryItem,
-                                    navController = navController
+                                    navController = navController,
+                                    storageManager = viewModel.storageManager
                                 )
                             }
                         )
@@ -283,7 +284,8 @@ private fun BookDetailContents(
                             context = context,
                             internalReader = viewModel.getInternalReaderSetting(),
                             libraryItem = state.bookLibraryItem,
-                            navController = navController
+                            navController = navController,
+                            storageManager = viewModel.storageManager
                         )
                     }
                 }

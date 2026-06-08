@@ -37,11 +37,10 @@ import java.security.MessageDigest
  * Class to handle downloading of books.
  * @param context [Context] required to access [DownloadManager] and to get file path for the downloaded file.
  */
-class BookDownloader(private val context: Context) {
+class BookDownloader(private val context: Context, private val storageManager: StorageManager) {
 
     companion object {
         private const val TAG = "BookDownloader"
-        const val BOOKS_FOLDER = "ebooks"
         const val TEMP_FOLDER = "temp_books"
         private const val MAX_FILENAME_LENGTH = 100
 
@@ -161,13 +160,10 @@ class BookDownloader(private val context: Context) {
                             Log.d(TAG, "downloadBook: Download successful for book: ${book.title}")
                             isDownloadFinished = true
                             progress = 1f
-                            // Move file to books folder.
-                            val booksFolder = File(context.filesDir, BOOKS_FOLDER)
-                            if (!booksFolder.exists()) booksFolder.mkdirs()
-                            val bookFile = File(booksFolder, filename)
-                            tempFile.copyTo(bookFile, true)
+                            // Move file to configured storage location.
+                            val savedPath = storageManager.saveBook(filename, tempFile.inputStream())
                             tempFile.delete()
-                            onDownloadSuccess(bookFile.absolutePath)
+                            onDownloadSuccess(savedPath)
                         }
 
                         DownloadManager.STATUS_PAUSED, DownloadManager.STATUS_PENDING -> {

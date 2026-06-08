@@ -118,6 +118,8 @@ dependencies {
     implementation 'com.google.android.material:material:1.14.0'
     // Android 12+ splash API.
     implementation 'androidx.core:core-splashscreen:1.2.0'
+    // DocumentFile for SAF storage support.
+    implementation 'androidx.documentfile:documentfile:1.0.1'
     // KotlinX Serialization library.
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0"
     // OkHttp library.

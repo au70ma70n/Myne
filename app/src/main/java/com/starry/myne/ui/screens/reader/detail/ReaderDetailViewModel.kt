@@ -27,6 +27,7 @@ import com.starry.myne.database.progress.ProgressDao
 import com.starry.myne.database.progress.ProgressData
 import com.starry.myne.epub.EpubParser
 import com.starry.myne.epub.models.EpubChapter
+import com.starry.myne.helpers.book.StorageManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -48,7 +49,8 @@ data class ReaderDetailScreenState(
 class ReaderDetailViewModel @Inject constructor(
     private val libraryDao: LibraryDao,
     private val progressDao: ProgressDao,
-    private val epubParser: EpubParser
+    private val epubParser: EpubParser,
+    private val storageManager: StorageManager
 ) : ViewModel() {
 
     var state by mutableStateOf(ReaderDetailScreenState())
@@ -70,10 +72,11 @@ class ReaderDetailViewModel @Inject constructor(
             // Gutenberg for some reason don't include proper navMap for chinese books
             // in toc file, so we need to parse the book based on spine, instead of toc.
             // This is special case for Chinese books.
+            val readablePath = storageManager.resolveToReadablePath(libraryItem.filePath)
             val isInternalChineseBook =
-                !libraryItem.isImported && epubParser.peekLanguage(libraryItem.filePath) == "zh"
+                !libraryItem.isImported && epubParser.peekLanguage(readablePath) == "zh"
             val shouldUseToc = !isInternalChineseBook
-            val epubBook = epubParser.createEpubBook(libraryItem.filePath, shouldUseToc)
+            val epubBook = epubParser.createEpubBook(readablePath, shouldUseToc)
 
             state = state.copy(
                 title = libraryItem.title,

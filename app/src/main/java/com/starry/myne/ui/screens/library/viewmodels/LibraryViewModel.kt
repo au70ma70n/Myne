@@ -30,12 +30,12 @@ import com.starry.myne.database.library.LibraryItem
 import com.starry.myne.epub.EpubParser
 import com.starry.myne.helpers.PreferenceUtil
 import com.starry.myne.helpers.book.BookDownloader
+import com.starry.myne.helpers.book.StorageManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 import java.io.FileInputStream
 import javax.inject.Inject
 
@@ -44,7 +44,8 @@ import javax.inject.Inject
 class LibraryViewModel @Inject constructor(
     private val libraryDao: LibraryDao,
     private val epubParser: EpubParser,
-    private val preferenceUtil: PreferenceUtil
+    private val preferenceUtil: PreferenceUtil,
+    val storageManager: StorageManager
 ) : ViewModel() {
 
     val allItems: LiveData<List<LibraryItem>> = libraryDao.getAllItems()
@@ -94,10 +95,8 @@ class LibraryViewModel @Inject constructor(
                         val epubBook = epubParser.createEpubBook(fis, false)
                         fis.channel.position(0)
 
-                        val filePath = copyBookToInternalStorage(
-                            context, fis,
-                            BookDownloader.createFileName(epubBook.title)
-                        )
+                        val filename = BookDownloader.createFileName(epubBook.title)
+                        val filePath = storageManager.saveBook(filename, fis)
 
                         val libraryItem = LibraryItem(
                             bookId = 0,
@@ -126,19 +125,5 @@ class LibraryViewModel @Inject constructor(
                 }
             }
         }
-    }
-
-
-    private suspend fun copyBookToInternalStorage(
-        context: Context,
-        fileStream: FileInputStream,
-        filename: String
-    ): String = withContext(Dispatchers.IO) {
-        val booksFolder = File(context.filesDir, BookDownloader.BOOKS_FOLDER)
-        if (!booksFolder.exists()) booksFolder.mkdirs()
-        val bookFile = File(booksFolder, filename)
-        // write the file to the internal storage
-        bookFile.outputStream().use { fileStream.copyTo(it) }
-        bookFile.absolutePath
     }
 }

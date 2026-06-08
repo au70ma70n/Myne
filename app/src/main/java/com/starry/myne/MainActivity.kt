@@ -32,14 +32,18 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.ViewModelProvider
 import com.starry.myne.helpers.NetworkObserver
 import com.starry.myne.ui.screens.main.MainScreen
+import com.starry.myne.helpers.book.StorageManager
 import com.starry.myne.ui.screens.settings.viewmodels.SettingsViewModel
 import com.starry.myne.ui.theme.AdjustEdgeToEdge
 import com.starry.myne.ui.theme.MyneTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+
+    @Inject lateinit var storageManager: StorageManager
 
     private lateinit var networkObserver: NetworkObserver
     lateinit var settingsViewModel: SettingsViewModel
@@ -58,6 +62,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         enableEdgeToEdge() // enable edge to edge for the activity.
+        storageManager.cleanCache()
 
         setContent {
             MyneTheme(settingsViewModel = settingsViewModel) {

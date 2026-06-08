@@ -88,14 +88,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.psoffritti.taptargetcompose.TapTargetCoordinator
 import com.psoffritti.taptargetcompose.TapTargetStyle
 import com.psoffritti.taptargetcompose.TextDefinition
-import com.starry.myne.BuildConfig
 import com.starry.myne.MainActivity
 import com.starry.myne.R
 import com.starry.myne.database.library.LibraryItem
@@ -116,7 +114,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import me.saket.swipe.SwipeAction
 import me.saket.swipe.SwipeableActionsBox
-import java.io.File
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -338,14 +335,15 @@ private fun LibraryContents(
                     key = { i -> libraryItems[i].id }
                 ) { i ->
                     val item = libraryItems[i]
-                    if (item.fileExist()) {
+                    if (viewModel.storageManager.bookExists(item.filePath)) {
                         LibraryLazyItem(
                             modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
                             item = item,
                             snackBarHostState = snackBarHostState,
                             navController = navController,
                             viewModel = viewModel,
-                            settingsVm = settingsVm
+                            settingsVm = settingsVm,
+                            storageManager = viewModel.storageManager
                         )
                     } else {
                         viewModel.deleteItemFromDB(item)
@@ -364,7 +362,8 @@ private fun LibraryLazyItem(
     snackBarHostState: SnackbarHostState,
     navController: NavController,
     viewModel: LibraryViewModel,
-    settingsVm: SettingsViewModel
+    settingsVm: SettingsViewModel,
+    storageManager: com.starry.myne.helpers.book.StorageManager
 ) {
     val context = LocalContext.current
 
@@ -399,11 +398,7 @@ private fun LibraryLazyItem(
         icon = painterResource(
             id = if (settingsVm.getCurrentTheme() == ThemeMode.Dark) R.drawable.ic_share else R.drawable.ic_share_white
         ), background = MaterialTheme.colorScheme.primary, onSwipe = {
-            val uri = FileProvider.getUriForFile(
-                context,
-                BuildConfig.APPLICATION_ID + ".provider",
-                File(item.filePath)
-            )
+            val uri = storageManager.getShareableUri(item.filePath)
             val intent = Intent(Intent.ACTION_SEND)
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             intent.type = context.contentResolver.getType(uri)
@@ -425,7 +420,7 @@ private fun LibraryLazyItem(
         LibraryCard(
             title = item.title,
             author = item.authors,
-            item.getFileSize(),
+            storageManager.getFormattedFileSize(item.filePath),
             item.getDownloadDate(),
             isExternalBook = item.isImported,
             onReadClick = {
@@ -433,7 +428,8 @@ private fun LibraryLazyItem(
                     context = context,
                     internalReader = viewModel.getInternalReaderSetting(),
                     libraryItem = item,
-                    navController = navController
+                    navController = navController,
+                    storageManager = storageManager
                 )
             },
             onDeleteClick = { openDeleteDialog.value = true })
@@ -451,7 +447,7 @@ private fun LibraryLazyItem(
             FilledTonalButton(
                 onClick = {
                     openDeleteDialog.value = false
-                    val fileDeleted = item.deleteFile()
+                    val fileDeleted = storageManager.deleteBook(item.filePath)
                     if (fileDeleted) {
                         viewModel.deleteItemFromDB(item)
                     } else {

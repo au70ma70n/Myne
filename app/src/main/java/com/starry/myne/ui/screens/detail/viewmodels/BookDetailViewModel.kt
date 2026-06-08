@@ -29,6 +29,7 @@ import com.starry.myne.database.library.LibraryItem
 import com.starry.myne.helpers.Constants
 import com.starry.myne.helpers.PreferenceUtil
 import com.starry.myne.helpers.book.BookDownloader
+import com.starry.myne.helpers.book.StorageManager
 import com.starry.myne.helpers.book.BookUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -50,7 +51,8 @@ class BookDetailViewModel @Inject constructor(
     private val bookAPI: BookAPI,
     val libraryDao: LibraryDao,
     val bookDownloader: BookDownloader,
-    private val preferenceUtil: PreferenceUtil
+    private val preferenceUtil: PreferenceUtil,
+    val storageManager: StorageManager
 ) : ViewModel() {
     var state by mutableStateOf(BookDetailScreenState())
         private set

@@ -40,4 +40,10 @@ interface LibraryDao {
 
     @Query("SELECT * FROM book_library WHERE book_id = :bookId")
     fun getItemByBookId(bookId: Int): LibraryItem?
+
+    @Query("UPDATE book_library SET file_path = :filePath WHERE id = :id")
+    fun updateFilePath(id: Int, filePath: String)
+
+    @Query("SELECT * FROM book_library ORDER BY created_at DESC")
+    fun getAllItemsSync(): List<LibraryItem>
 }

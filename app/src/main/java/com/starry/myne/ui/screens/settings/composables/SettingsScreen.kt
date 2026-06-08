@@ -17,10 +17,13 @@
 package com.starry.myne.ui.screens.settings.composables
 
 import android.app.NotificationManager
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -30,11 +33,13 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -49,10 +54,14 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LocalPolice
 import androidx.compose.material.icons.filled.NotificationsPaused
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +72,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
@@ -205,6 +215,7 @@ private fun SettingsCard() {
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GeneralOptionsUI(
     viewModel: SettingsViewModel,
@@ -216,6 +227,30 @@ private fun GeneralOptionsUI(
     val internalReaderState = viewModel.internalReader.observeAsState(initial = true)
     val openLibraryAtStartState = viewModel.openLibraryAtStart.observeAsState(initial = false)
     val readerDNDState = viewModel.readerDND.observeAsState(initial = false)
+
+    val storageLocationState = viewModel.storageLocation.observeAsState(initial = "Internal storage")
+    val storageAccessibleState = viewModel.storageAccessible.observeAsState(initial = true)
+    val isMigratingState = viewModel.isMigrating.observeAsState(initial = false)
+    val migrationProgressState = viewModel.migrationProgress.observeAsState(initial = Pair(0, 0))
+
+    val pickStorageLocation = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            try {
+                context.contentResolver.takePersistableUriPermission(uri, flags)
+            } catch (e: SecurityException) {
+                coroutineScope.launch {
+                    snackBarHostState.showSnackbar(
+                        context.getString(R.string.storage_permission_warning)
+                    )
+                }
+            }
+            viewModel.setStorageLocation(uri.toString())
+        }
+    }
 
     val internalReaderValue = when (internalReaderState.value) {
         true -> stringResource(id = R.string.reader_option_inbuilt)
@@ -304,6 +339,36 @@ private fun GeneralOptionsUI(
                 }
             }
         )
+
+        SettingItem(
+            icon = Icons.Filled.Storage,
+            mainText = stringResource(id = R.string.storage_location_setting),
+            subText = if (storageAccessibleState.value) {
+                storageLocationState.value ?: stringResource(id = R.string.storage_location_internal)
+            } else {
+                stringResource(id = R.string.storage_location_unavailable)
+            },
+            onClick = {
+                try {
+                    pickStorageLocation.launch(null)
+                } catch (e: ActivityNotFoundException) {
+                    coroutineScope.launch {
+                        snackBarHostState.showSnackbar(
+                            context.getString(R.string.storage_picker_error)
+                        )
+                    }
+                }
+            }
+        )
+
+        if (viewModel.getStorageManager().isUsingExternalStorage()) {
+            SettingItem(
+                icon = ImageVector.vectorResource(id = R.drawable.ic_settings_library_start),
+                mainText = stringResource(id = R.string.storage_location_reset),
+                subText = stringResource(id = R.string.storage_location_reset_desc),
+                onClick = { viewModel.resetToInternalStorage() }
+            )
+        }
     }
 
     if (showReaderDialog.value) {
@@ -379,6 +444,51 @@ private fun GeneralOptionsUI(
             }
         })
     }
+
+    if (isMigratingState.value) {
+        BasicAlertDialog(onDismissRequest = {}) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(5.dp)
+                ),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(44.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.width(24.dp))
+                    Text(
+                        text = stringResource(
+                            id = R.string.storage_migration_progress,
+                            migrationProgressState.value.first,
+                            migrationProgressState.value.second
+                        ),
+                        fontFamily = poppinsFont,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 17.sp,
+                    )
+                }
+            }
+        }
+    }
+
+    val previousMigrating = remember { mutableStateOf(false) }
+    if (previousMigrating.value && !isMigratingState.value) {
+        coroutineScope.launch {
+            snackBarHostState.showSnackbar(
+                context.getString(
+                    if (storageAccessibleState.value) R.string.storage_migration_success
+                    else R.string.storage_migration_error
+                )
+            )
+        }
+    }
+    previousMigrating.value = isMigratingState.value
 }
 
 

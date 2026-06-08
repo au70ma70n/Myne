@@ -23,7 +23,9 @@ import com.starry.myne.database.MyneDatabase
 import com.starry.myne.epub.EpubParser
 import com.starry.myne.helpers.PreferenceUtil
 import com.starry.myne.helpers.ZenModeManager
+import com.starry.myne.database.library.LibraryDao
 import com.starry.myne.helpers.book.BookDownloader
+import com.starry.myne.helpers.book.StorageManager
 import com.starry.myne.ui.screens.welcome.viewmodels.WelcomeDataStore
 import dagger.Module
 import dagger.Provides
@@ -71,7 +73,18 @@ class MainModule {
 
     @Singleton
     @Provides
-    fun provideBookDownloader(@ApplicationContext context: Context) = BookDownloader(context)
+    fun provideStorageManager(
+        @ApplicationContext context: Context,
+        preferenceUtil: PreferenceUtil,
+        libraryDao: LibraryDao
+    ) = StorageManager(context, preferenceUtil, libraryDao)
+
+    @Singleton
+    @Provides
+    fun provideBookDownloader(
+        @ApplicationContext context: Context,
+        storageManager: StorageManager
+    ) = BookDownloader(context, storageManager)
 
     @Singleton
     @Provides

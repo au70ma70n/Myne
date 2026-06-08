@@ -22,8 +22,11 @@ import androidx.compose.runtime.Composable
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.starry.myne.helpers.PreferenceUtil
+import com.starry.myne.helpers.book.StorageManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 enum class ThemeMode {
@@ -32,7 +35,8 @@ enum class ThemeMode {
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val preferenceUtil: PreferenceUtil
+    private val preferenceUtil: PreferenceUtil,
+    private val storageManager: StorageManager
 ) : ViewModel() {
 
     private val _theme = MutableLiveData(ThemeMode.Auto)
@@ -42,12 +46,21 @@ class SettingsViewModel @Inject constructor(
     private val _openLibraryAtStart = MutableLiveData(false)
     private val _readerDND = MutableLiveData(false)
 
+    private val _storageLocation = MutableLiveData<String>()
+    private val _storageAccessible = MutableLiveData(true)
+    private val _isMigrating = MutableLiveData(false)
+    private val _migrationProgress = MutableLiveData(Pair(0, 0))
+
     val theme: LiveData<ThemeMode> = _theme
     val amoledTheme: LiveData<Boolean> = _amoledTheme
     val materialYou: LiveData<Boolean> = _materialYou
     val internalReader: LiveData<Boolean> = _internalReader
     val openLibraryAtStart: LiveData<Boolean> = _openLibraryAtStart
     val readerDND: LiveData<Boolean> = _readerDND
+    val storageLocation: LiveData<String> = _storageLocation
+    val storageAccessible: LiveData<Boolean> = _storageAccessible
+    val isMigrating: LiveData<Boolean> = _isMigrating
+    val migrationProgress: LiveData<Pair<Int, Int>> = _migrationProgress
 
     init {
         _theme.value = ThemeMode.entries.toTypedArray()[getThemeValue()]
@@ -56,6 +69,8 @@ class SettingsViewModel @Inject constructor(
         _internalReader.value = getInternalReaderValue()
         _openLibraryAtStart.value = getOpenLibraryAtStartValue()
         _readerDND.value = getReaderDNDValue()
+        _storageLocation.value = storageManager.getDisplayablePath()
+        _storageAccessible.value = storageManager.validateStorageAccess()
     }
 
     // Getters =============================================================================
@@ -89,6 +104,36 @@ class SettingsViewModel @Inject constructor(
         _readerDND.postValue(newValue)
         preferenceUtil.putBoolean(PreferenceUtil.READER_DND_BOOL, newValue)
     }
+
+    fun setStorageLocation(uri: String?) {
+        _isMigrating.postValue(true)
+        viewModelScope.launch {
+            storageManager.migrateStorage(
+                newUri = uri,
+                onProgress = { current, total ->
+                    _migrationProgress.postValue(Pair(current, total))
+                },
+                onComplete = { success ->
+                    _isMigrating.postValue(false)
+                    if (success) {
+                        _storageLocation.postValue(storageManager.getDisplayablePath())
+                        _storageAccessible.postValue(true)
+                    }
+                }
+            )
+        }
+    }
+
+    fun resetToInternalStorage() {
+        setStorageLocation(null)
+    }
+
+    fun validateStorage() {
+        _storageAccessible.postValue(storageManager.validateStorageAccess())
+        _storageLocation.postValue(storageManager.getDisplayablePath())
+    }
+
+    fun getStorageManager(): StorageManager = storageManager
 
     // Getters ============================================================================
     // Used only during initialization except getCurrentTheme()

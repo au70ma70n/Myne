@@ -34,6 +34,9 @@ class PreferenceUtil(context: Context) {
         const val INTERNAL_READER_BOOL = "internal_reader"
         const val OPEN_LIBRARY_AT_START_BOOL = "launch_library_at_start"
 
+        // Storage preference keys
+        const val STORAGE_URI_STR = "storage_uri"
+
         // App theme preference keys
         const val APP_THEME_INT = "theme_settings"
         const val AMOLED_THEME_BOOL = "amoled_theme"
