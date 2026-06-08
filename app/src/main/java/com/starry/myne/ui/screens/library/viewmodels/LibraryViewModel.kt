@@ -24,12 +24,20 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.asFlow
+import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
+import com.starry.myne.api.BookAPI
 import com.starry.myne.database.library.LibraryDao
 import com.starry.myne.database.library.LibraryItem
 import com.starry.myne.epub.EpubParser
 import com.starry.myne.helpers.PreferenceUtil
 import com.starry.myne.helpers.book.BookDownloader
+import com.starry.myne.helpers.book.BookUtils
 import com.starry.myne.helpers.book.StorageManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -43,12 +51,107 @@ import javax.inject.Inject
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val libraryDao: LibraryDao,
+    private val bookAPI: BookAPI,
     private val epubParser: EpubParser,
     private val preferenceUtil: PreferenceUtil,
     val storageManager: StorageManager
 ) : ViewModel() {
 
-    val allItems: LiveData<List<LibraryItem>> = libraryDao.getAllItems()
+    private val _allItems: LiveData<List<LibraryItem>> = libraryDao.getAllItems()
+
+    init {
+        backfillLanguageAndCategory()
+    }
+
+    private fun backfillLanguageAndCategory() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val items = libraryDao.getItemsWithoutLanguage()
+            if (items.isEmpty()) return@launch
+            Log.d("LibraryViewModel", "Backfilling language/category for ${items.size} items")
+            for (item in items) {
+                try {
+                    val bookSet = bookAPI.getBookById(item.bookId.toString()).getOrNull()
+                    val book = bookSet?.books?.firstOrNull() ?: continue
+                    val language = BookUtils.extractPrimaryLanguage(book.languages)
+                    val category = BookUtils.matchCategory(book.subjects)
+                    libraryDao.updateLanguageAndCategory(item.id, language, category)
+                } catch (e: Exception) {
+                    Log.e("LibraryViewModel", "Failed to backfill book ${item.bookId}", e)
+                }
+            }
+            Log.d("LibraryViewModel", "Backfill complete")
+        }
+    }
+
+    private val _selectedLanguageFilter = MutableStateFlow<String?>(null)
+    val selectedLanguageFilter = _selectedLanguageFilter.asStateFlow()
+
+    private val _selectedCategoryFilter = MutableStateFlow<String?>(null)
+    val selectedCategoryFilter = _selectedCategoryFilter.asStateFlow()
+
+    val allItems: LiveData<List<LibraryItem>> = combine(
+        _allItems.asFlow(),
+        _selectedLanguageFilter,
+        _selectedCategoryFilter
+    ) { items, lang, cat ->
+        items.filter { item ->
+            (lang == null || item.language == lang) &&
+            (cat == null || item.category == cat)
+        }
+    }.asLiveData()
+
+    val distinctLanguages: LiveData<List<String>> = libraryDao.getDistinctLanguages()
+    val distinctCategories: LiveData<List<String>> = libraryDao.getDistinctCategories()
+
+    fun setLanguageFilter(language: String?) { _selectedLanguageFilter.value = language }
+    fun setCategoryFilter(category: String?) { _selectedCategoryFilter.value = category }
+
+    private val _isSelectionMode = MutableStateFlow(false)
+    val isSelectionMode = _isSelectionMode.asStateFlow()
+
+    private val _selectedIds = MutableStateFlow<Set<Int>>(emptySet())
+    val selectedIds = _selectedIds.asStateFlow()
+
+    fun enterSelectionMode(itemId: Int) {
+        _isSelectionMode.value = true
+        _selectedIds.value = setOf(itemId)
+    }
+
+    fun exitSelectionMode() {
+        _isSelectionMode.value = false
+        _selectedIds.value = emptySet()
+    }
+
+    fun toggleSelection(itemId: Int) {
+        _selectedIds.update { current ->
+            if (current.contains(itemId)) current - itemId else current + itemId
+        }
+        if (_selectedIds.value.isEmpty()) {
+            _isSelectionMode.value = false
+        }
+    }
+
+    fun selectAll() {
+        val items = allItems.value ?: return
+        _selectedIds.value = items.map { it.id }.toSet()
+    }
+
+    fun deleteSelectedItems(onComplete: () -> Unit, onError: () -> Unit) {
+        val items = _allItems.value ?: return
+        val toDelete = items.filter { _selectedIds.value.contains(it.id) }
+        viewModelScope.launch(Dispatchers.IO) {
+            var allDeleted = true
+            for (item in toDelete) {
+                val fileDeleted = storageManager.deleteBook(item.filePath)
+                if (!fileDeleted) allDeleted = false
+            }
+            libraryDao.deleteMultiple(toDelete)
+            withContext(Dispatchers.Main) {
+                exitSelectionMode()
+                if (allDeleted) onComplete() else onError()
+            }
+        }
+    }
 
     private val _showOnboardingTapTargets: MutableState<Boolean> = mutableStateOf(
         value = preferenceUtil.getBoolean(PreferenceUtil.LIBRARY_ONBOARDING_BOOL, true)
@@ -65,8 +168,8 @@ class LibraryViewModel @Inject constructor(
 
     fun shouldShowLibraryTooltip(): Boolean {
         return preferenceUtil.getBoolean(PreferenceUtil.LIBRARY_SWIPE_TOOLTIP_BOOL, true)
-                && allItems.value?.isNotEmpty() == true
-                && allItems.value?.any { !it.isImported } == true
+                && _allItems.value?.isNotEmpty() == true
+                && _allItems.value?.any { !it.isImported } == true
     }
 
     fun libraryTooltipDismissed() = preferenceUtil.putBoolean(

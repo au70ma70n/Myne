@@ -25,6 +25,7 @@ import com.starry.myne.api.models.Author
 import com.starry.myne.database.library.LibraryItem
 import com.starry.myne.helpers.toToast
 import com.starry.myne.ui.navigation.Screens
+import com.starry.myne.ui.screens.categories.composables.BookCategories
 import java.util.Locale
 
 object BookUtils {
@@ -73,6 +74,20 @@ object BookUtils {
      * @param limit Maximum number of subjects to show.
      * @return String representation of the subjects.
      */
+    fun extractPrimaryLanguage(languages: List<String>): String {
+        return languages.firstOrNull() ?: ""
+    }
+
+    fun matchCategory(subjects: List<String>): String {
+        if (subjects.isEmpty()) return ""
+        val categoryNames = BookCategories.ALL.map { it.category }
+        val flatSubjects = subjects.flatMap { it.split("--") }.map { it.trim().lowercase() }
+        for (catName in categoryNames) {
+            if (flatSubjects.any { it.contains(catName) }) return catName
+        }
+        return subjects.firstOrNull()?.split("--")?.firstOrNull()?.trim()?.lowercase() ?: ""
+    }
+
     fun getSubjectsAsString(subjects: List<String>, limit: Int): String {
         val allSubjects = subjects.flatMap { it.split("--") }.map { it.trim() }.toSet()
         val truncatedSubs = if (allSubjects.size > limit) allSubjects.take(limit) else allSubjects

@@ -32,6 +32,9 @@ interface LibraryDao {
     @Delete
     fun delete(libraryItem: LibraryItem)
 
+    @Delete
+    fun deleteMultiple(items: List<LibraryItem>)
+
     @Query("SELECT * FROM book_library ORDER BY created_at DESC")
     fun getAllItems(): LiveData<List<LibraryItem>>
 
@@ -46,4 +49,16 @@ interface LibraryDao {
 
     @Query("SELECT * FROM book_library ORDER BY created_at DESC")
     fun getAllItemsSync(): List<LibraryItem>
+
+    @Query("UPDATE book_library SET language = :language, category = :category WHERE id = :id")
+    fun updateLanguageAndCategory(id: Int, language: String, category: String)
+
+    @Query("SELECT * FROM book_library WHERE language = '' AND book_id != 0")
+    fun getItemsWithoutLanguage(): List<LibraryItem>
+
+    @Query("SELECT DISTINCT language FROM book_library WHERE language != '' ORDER BY language ASC")
+    fun getDistinctLanguages(): LiveData<List<String>>
+
+    @Query("SELECT DISTINCT category FROM book_library WHERE category != '' ORDER BY category ASC")
+    fun getDistinctCategories(): LiveData<List<String>>
 }

@@ -117,7 +117,9 @@ class BookDetailViewModel @Inject constructor(
             title = book.title,
             authors = BookUtils.getAuthorsAsString(book.authors),
             filePath = filePath,
-            createdAt = System.currentTimeMillis()
+            createdAt = System.currentTimeMillis(),
+            language = BookUtils.extractPrimaryLanguage(book.languages),
+            category = BookUtils.matchCategory(book.subjects)
         )
         libraryDao.insert(libraryItem)
     }

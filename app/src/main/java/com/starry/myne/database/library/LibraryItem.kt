@@ -45,7 +45,11 @@ data class LibraryItem(
     val createdAt: Long,
     // Added in database schema version 3
     @ColumnInfo(name = "is_external_book", defaultValue = "false")
-    val isImported: Boolean = false
+    val isImported: Boolean = false,
+    @ColumnInfo(name = "language", defaultValue = "")
+    val language: String = "",
+    @ColumnInfo(name = "category", defaultValue = "")
+    val category: String = ""
 ) {
     @PrimaryKey(autoGenerate = true)
     var id: Int = 0

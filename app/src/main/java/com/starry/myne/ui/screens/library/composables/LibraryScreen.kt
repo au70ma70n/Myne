@@ -24,29 +24,41 @@ import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -55,8 +67,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -69,6 +84,8 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -112,6 +129,7 @@ import com.starry.myne.ui.screens.settings.viewmodels.ThemeMode
 import com.starry.myne.ui.theme.poppinsFont
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.Locale
 import me.saket.swipe.SwipeAction
 import me.saket.swipe.SwipeableActionsBox
 
@@ -163,10 +181,77 @@ fun LibraryScreen(navController: NavController) {
             )
         }
 
+    val isSelectionMode by viewModel.isSelectionMode.collectAsState()
+    val selectedIds by viewModel.selectedIds.collectAsState()
+    val showDeleteSelectedDialog = remember { mutableStateOf(false) }
+
     val showTapTargets = remember { mutableStateOf(false) }
     LaunchedEffect(key1 = viewModel.showOnboardingTapTargets.value) {
         delay(500) // Delay to prevent flickering
         showTapTargets.value = viewModel.showOnboardingTapTargets.value
+    }
+
+    if (showDeleteSelectedDialog.value) {
+        AlertDialog(
+            onDismissRequest = { showDeleteSelectedDialog.value = false },
+            title = {
+                Text(
+                    text = stringResource(
+                        id = R.string.library_delete_selected_title,
+                        selectedIds.size
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(id = R.string.library_delete_selected_desc),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            },
+            confirmButton = {
+                val count = selectedIds.size
+                FilledTonalButton(
+                    onClick = {
+                        showDeleteSelectedDialog.value = false
+                        viewModel.deleteSelectedItems(
+                            onComplete = {
+                                coroutineScope.launch {
+                                    snackBarHostState.showSnackbar(
+                                        message = context.getString(
+                                            R.string.library_delete_selected_success,
+                                            count
+                                        ),
+                                        actionLabel = context.getString(R.string.ok),
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            },
+                            onError = {
+                                coroutineScope.launch {
+                                    snackBarHostState.showSnackbar(
+                                        message = context.getString(R.string.error),
+                                        actionLabel = context.getString(R.string.ok),
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            }
+                        )
+                    },
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Text(stringResource(id = R.string.confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteSelectedDialog.value = false }) {
+                    Text(stringResource(id = R.string.cancel))
+                }
+            }
+        )
     }
 
     TapTargetCoordinator(
@@ -180,10 +265,19 @@ fun LibraryScreen(navController: NavController) {
                 .background(MaterialTheme.colorScheme.background)
                 .padding(bottom = bottomNavPadding),
             topBar = {
-                CustomTopAppBar(
-                    headerText = stringResource(id = R.string.library_header),
-                    iconRes = R.drawable.ic_nav_library
-                )
+                if (isSelectionMode) {
+                    SelectionTopBar(
+                        selectedCount = selectedIds.size,
+                        onCloseClicked = { viewModel.exitSelectionMode() },
+                        onSelectAllClicked = { viewModel.selectAll() },
+                        onDeleteClicked = { showDeleteSelectedDialog.value = true }
+                    )
+                } else {
+                    CustomTopAppBar(
+                        headerText = stringResource(id = R.string.library_header),
+                        iconRes = R.drawable.ic_nav_library
+                    )
+                }
             },
             floatingActionButton = {
                 val density = LocalDensity.current
@@ -247,7 +341,9 @@ fun LibraryScreen(navController: NavController) {
                 lazyListState = lazyListState,
                 snackBarHostState = snackBarHostState,
                 navController = navController,
-                paddingValues = paddingValues
+                paddingValues = paddingValues,
+                isSelectionMode = isSelectionMode,
+                selectedIds = selectedIds
             )
 
             if (showImportDialog.value) {
@@ -290,11 +386,17 @@ private fun LibraryContents(
     lazyListState: LazyListState,
     snackBarHostState: SnackbarHostState,
     navController: NavController,
-    paddingValues: PaddingValues
+    paddingValues: PaddingValues,
+    isSelectionMode: Boolean,
+    selectedIds: Set<Int>
 ) {
     val context = LocalContext.current
     val settingsVm = (context.getActivity() as MainActivity).settingsViewModel
     val libraryItems = viewModel.allItems.observeAsState(listOf()).value
+
+    val selectedLanguage by viewModel.selectedLanguageFilter.collectAsState()
+    val selectedCategory by viewModel.selectedCategoryFilter.collectAsState()
+    val hasFilters = selectedLanguage != null || selectedCategory != null
 
     // Show tooltip for library screen.
     LaunchedEffect(key1 = true) {
@@ -321,8 +423,20 @@ private fun LibraryContents(
             .background(MaterialTheme.colorScheme.background)
             .padding(paddingValues)
     ) {
+        if (!isSelectionMode) {
+            LibraryFilterBar(
+                viewModel = viewModel,
+                selectedLanguage = selectedLanguage,
+                selectedCategory = selectedCategory
+            )
+        }
+
         if (libraryItems.isEmpty()) {
-            NoBooksAvailable(text = stringResource(id = R.string.empty_library))
+            if (hasFilters) {
+                NoBooksAvailable(text = stringResource(id = R.string.library_no_filter_results))
+            } else {
+                NoBooksAvailable(text = stringResource(id = R.string.empty_library))
+            }
         } else {
             LazyColumn(
                 modifier = Modifier
@@ -343,7 +457,9 @@ private fun LibraryContents(
                             navController = navController,
                             viewModel = viewModel,
                             settingsVm = settingsVm,
-                            storageManager = viewModel.storageManager
+                            storageManager = viewModel.storageManager,
+                            isSelectionMode = isSelectionMode,
+                            isSelected = selectedIds.contains(item.id)
                         )
                     } else {
                         viewModel.deleteItemFromDB(item)
@@ -355,6 +471,7 @@ private fun LibraryContents(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LibraryLazyItem(
     modifier: Modifier,
@@ -363,117 +480,152 @@ private fun LibraryLazyItem(
     navController: NavController,
     viewModel: LibraryViewModel,
     settingsVm: SettingsViewModel,
-    storageManager: com.starry.myne.helpers.book.StorageManager
+    storageManager: com.starry.myne.helpers.book.StorageManager,
+    isSelectionMode: Boolean,
+    isSelected: Boolean
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
 
     val coroutineScope = rememberCoroutineScope()
     val openDeleteDialog = remember { mutableStateOf(false) }
 
-    // Swipe actions to show book details.
-    val detailsAction = SwipeAction(
-        icon = painterResource(
-            id = if (settingsVm.getCurrentTheme() == ThemeMode.Dark) R.drawable.ic_info else R.drawable.ic_info_white
-        ), background = MaterialTheme.colorScheme.primary, onSwipe = {
-            viewModel.viewModelScope.launch {
-                delay(250L)
-                if (item.isImported) {
-                    snackBarHostState.showSnackbar(
-                        message = context.getString(R.string.external_book_info_unavailable),
-                        actionLabel = context.getString(R.string.ok),
-                        duration = SnackbarDuration.Short
-                    )
-                } else {
-                    navController.navigate(
-                        Screens.BookDetailScreen.withBookId(
-                            item.bookId.toString()
+    if (isSelectionMode) {
+        Box(
+            modifier = modifier
+                .padding(vertical = 4.dp)
+                .combinedClickable(
+                    onClick = { viewModel.toggleSelection(item.id) }
+                )
+        ) {
+            LibraryCard(
+                title = item.title,
+                author = item.authors,
+                storageManager.getFormattedFileSize(item.filePath),
+                item.getDownloadDate(),
+                isExternalBook = item.isImported,
+                isSelectionMode = true,
+                isSelected = isSelected,
+                onReadClick = { viewModel.toggleSelection(item.id) },
+                onDeleteClick = { viewModel.toggleSelection(item.id) }
+            )
+        }
+    } else {
+        // Swipe actions to show book details.
+        val detailsAction = SwipeAction(
+            icon = painterResource(
+                id = if (settingsVm.getCurrentTheme() == ThemeMode.Dark) R.drawable.ic_info else R.drawable.ic_info_white
+            ), background = MaterialTheme.colorScheme.primary, onSwipe = {
+                viewModel.viewModelScope.launch {
+                    delay(250L)
+                    if (item.isImported) {
+                        snackBarHostState.showSnackbar(
+                            message = context.getString(R.string.external_book_info_unavailable),
+                            actionLabel = context.getString(R.string.ok),
+                            duration = SnackbarDuration.Short
                         )
-                    )
-                }
-            }
-        })
-
-    // Swipe actions to share book.
-    val shareAction = SwipeAction(
-        icon = painterResource(
-            id = if (settingsVm.getCurrentTheme() == ThemeMode.Dark) R.drawable.ic_share else R.drawable.ic_share_white
-        ), background = MaterialTheme.colorScheme.primary, onSwipe = {
-            val uri = storageManager.getShareableUri(item.filePath)
-            val intent = Intent(Intent.ACTION_SEND)
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            intent.type = context.contentResolver.getType(uri)
-            intent.putExtra(Intent.EXTRA_STREAM, uri)
-            context.startActivity(
-                Intent.createChooser(
-                    intent,
-                    context.getString(R.string.share_app_chooser)
-                )
-            )
-        })
-
-    SwipeableActionsBox(
-        modifier = modifier.padding(vertical = 4.dp),
-        startActions = listOf(shareAction),
-        endActions = listOf(detailsAction),
-        swipeThreshold = 85.dp
-    ) {
-        LibraryCard(
-            title = item.title,
-            author = item.authors,
-            storageManager.getFormattedFileSize(item.filePath),
-            item.getDownloadDate(),
-            isExternalBook = item.isImported,
-            onReadClick = {
-                BookUtils.openBookFile(
-                    context = context,
-                    internalReader = viewModel.getInternalReaderSetting(),
-                    libraryItem = item,
-                    navController = navController,
-                    storageManager = storageManager
-                )
-            },
-            onDeleteClick = { openDeleteDialog.value = true })
-    }
-
-    if (openDeleteDialog.value) {
-        AlertDialog(onDismissRequest = {
-            openDeleteDialog.value = false
-        }, title = {
-            Text(
-                text = stringResource(id = R.string.library_delete_dialog_title),
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }, confirmButton = {
-            FilledTonalButton(
-                onClick = {
-                    openDeleteDialog.value = false
-                    val fileDeleted = storageManager.deleteBook(item.filePath)
-                    if (fileDeleted) {
-                        viewModel.deleteItemFromDB(item)
                     } else {
-                        coroutineScope.launch {
-                            snackBarHostState.showSnackbar(
-                                message = context.getString(R.string.error),
-                                actionLabel = context.getString(R.string.ok),
-                                duration = SnackbarDuration.Short
+                        navController.navigate(
+                            Screens.BookDetailScreen.withBookId(
+                                item.bookId.toString()
                             )
-                        }
+                        )
                     }
-                },
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    containerColor = MaterialTheme.colorScheme.errorContainer
+                }
+            })
+
+        // Swipe actions to share book.
+        val shareAction = SwipeAction(
+            icon = painterResource(
+                id = if (settingsVm.getCurrentTheme() == ThemeMode.Dark) R.drawable.ic_share else R.drawable.ic_share_white
+            ), background = MaterialTheme.colorScheme.primary, onSwipe = {
+                val uri = storageManager.getShareableUri(item.filePath)
+                val intent = Intent(Intent.ACTION_SEND)
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                intent.type = context.contentResolver.getType(uri)
+                intent.putExtra(Intent.EXTRA_STREAM, uri)
+                context.startActivity(
+                    Intent.createChooser(
+                        intent,
+                        context.getString(R.string.share_app_chooser)
+                    )
                 )
-            ) {
-                Text(stringResource(id = R.string.confirm))
-            }
-        }, dismissButton = {
-            TextButton(onClick = {
+            })
+
+        SwipeableActionsBox(
+            modifier = modifier
+                .padding(vertical = 4.dp)
+                .combinedClickable(
+                    onClick = {},
+                    onLongClick = {
+                        view.weakHapticFeedback()
+                        viewModel.enterSelectionMode(item.id)
+                    }
+                ),
+            startActions = listOf(shareAction),
+            endActions = listOf(detailsAction),
+            swipeThreshold = 85.dp
+        ) {
+            LibraryCard(
+                title = item.title,
+                author = item.authors,
+                storageManager.getFormattedFileSize(item.filePath),
+                item.getDownloadDate(),
+                isExternalBook = item.isImported,
+                isSelectionMode = false,
+                isSelected = false,
+                onReadClick = {
+                    BookUtils.openBookFile(
+                        context = context,
+                        internalReader = viewModel.getInternalReaderSetting(),
+                        libraryItem = item,
+                        navController = navController,
+                        storageManager = storageManager
+                    )
+                },
+                onDeleteClick = { openDeleteDialog.value = true })
+        }
+
+        if (openDeleteDialog.value) {
+            AlertDialog(onDismissRequest = {
                 openDeleteDialog.value = false
-            }) {
-                Text(stringResource(id = R.string.cancel))
-            }
-        })
+            }, title = {
+                Text(
+                    text = stringResource(id = R.string.library_delete_dialog_title),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }, confirmButton = {
+                FilledTonalButton(
+                    onClick = {
+                        openDeleteDialog.value = false
+                        val fileDeleted = storageManager.deleteBook(item.filePath)
+                        if (fileDeleted) {
+                            viewModel.deleteItemFromDB(item)
+                        } else {
+                            coroutineScope.launch {
+                                snackBarHostState.showSnackbar(
+                                    message = context.getString(R.string.error),
+                                    actionLabel = context.getString(R.string.ok),
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Text(stringResource(id = R.string.confirm))
+                }
+            }, dismissButton = {
+                TextButton(onClick = {
+                    openDeleteDialog.value = false
+                }) {
+                    Text(stringResource(id = R.string.cancel))
+                }
+            })
+        }
     }
 }
 
@@ -484,18 +636,35 @@ private fun LibraryCard(
     fileSize: String,
     date: String,
     isExternalBook: Boolean,
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
     onReadClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp)
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+            else MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp)
         ), shape = RoundedCornerShape(0.dp)
     ) {
         Row(
             modifier = Modifier.padding(start = 12.dp, end = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (isSelectionMode) {
+                Icon(
+                    imageVector = if (isSelected) Icons.Outlined.CheckBox
+                    else Icons.Outlined.CheckBoxOutlineBlank,
+                    contentDescription = null,
+                    tint = if (isSelected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier
+                        .size(28.dp)
+                        .padding(start = 4.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+            }
+
             Box(
                 modifier = Modifier
                     .height(90.dp)
@@ -622,6 +791,146 @@ private fun LibraryCardButton(
 }
 
 
+@Composable
+private fun LibraryFilterBar(
+    viewModel: LibraryViewModel,
+    selectedLanguage: String?,
+    selectedCategory: String?
+) {
+    val languages by viewModel.distinctLanguages.observeAsState(emptyList())
+    val categories by viewModel.distinctCategories.observeAsState(emptyList())
+
+    LaunchedEffect(languages, selectedLanguage) {
+        if (selectedLanguage != null && selectedLanguage !in languages) {
+            viewModel.setLanguageFilter(null)
+        }
+    }
+    LaunchedEffect(categories, selectedCategory) {
+        if (selectedCategory != null && selectedCategory !in categories) {
+            viewModel.setCategoryFilter(null)
+        }
+    }
+
+    if (languages.isEmpty() && categories.isEmpty()) return
+
+    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+        if (languages.isNotEmpty()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(languages.size) { idx ->
+                    val lang = languages[idx]
+                    val displayName = Locale.forLanguageTag(lang).displayLanguage
+                    FilterChip(
+                        selected = selectedLanguage == lang,
+                        onClick = {
+                            viewModel.setLanguageFilter(
+                                if (selectedLanguage == lang) null else lang
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = displayName,
+                                fontFamily = poppinsFont,
+                                fontSize = 13.sp
+                            )
+                        }
+                    )
+                }
+            }
+        }
+        if (categories.isNotEmpty()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(categories.size) { idx ->
+                    val cat = categories[idx]
+                    val displayName = cat.replaceFirstChar { it.uppercase() }
+                    FilterChip(
+                        selected = selectedCategory == cat,
+                        onClick = {
+                            viewModel.setCategoryFilter(
+                                if (selectedCategory == cat) null else cat
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = displayName,
+                                fontFamily = poppinsFont,
+                                fontSize = 13.sp
+                            )
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectionTopBar(
+    selectedCount: Int,
+    onCloseClicked: () -> Unit,
+    onSelectAllClicked: () -> Unit,
+    onDeleteClicked: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp)
+            .windowInsetsPadding(WindowInsets.statusBars)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onCloseClicked) {
+                Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onBackground
+                )
+            }
+
+            Text(
+                text = stringResource(id = R.string.library_selected_count, selectedCount),
+                fontSize = 18.sp,
+                fontFamily = poppinsFont,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f)
+            )
+
+            IconButton(onClick = onSelectAllClicked) {
+                Icon(
+                    imageVector = Icons.Outlined.SelectAll,
+                    contentDescription = stringResource(id = R.string.library_select_all),
+                    tint = MaterialTheme.colorScheme.onBackground
+                )
+            }
+
+            IconButton(
+                onClick = onDeleteClicked,
+                enabled = selectedCount > 0
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Delete,
+                    contentDescription = null,
+                    tint = if (selectedCount > 0) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f)
+                )
+            }
+        }
+
+        HorizontalDivider(
+            thickness = 2.dp,
+            color = MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp)
+        )
+    }
+}
+
 @ExperimentalMaterial3Api
 @Composable
 @Preview
@@ -632,6 +941,8 @@ fun LibraryScreenPreview() {
         fileSize = "5.9MB",
         date = "01- Jan -2020",
         isExternalBook = false,
+        isSelectionMode = false,
+        isSelected = false,
         onReadClick = {},
         onDeleteClick = {})
 }
