@@ -2,6 +2,7 @@ package com.starry.myne.helpers.book
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.util.Log
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
@@ -117,6 +118,7 @@ class StorageManager(
         if (!filePath.startsWith("content://")) return filePath
 
         val uri = Uri.parse(filePath)
+
         val cacheDir = File(context.cacheDir, CACHE_FOLDER)
         if (!cacheDir.exists()) cacheDir.mkdirs()
 
@@ -127,7 +129,18 @@ class StorageManager(
             return cacheFile.absolutePath
         }
 
-        context.contentResolver.openInputStream(uri)?.use { input ->
+        // Build a tree-scoped document URI from the stored tree permission.
+        val docId = DocumentsContract.getDocumentId(uri)
+        val treeUriStr = getStorageUri()
+        val inputStream = if (treeUriStr != null) {
+            val treeUri = Uri.parse(treeUriStr)
+            val childUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
+            context.contentResolver.openInputStream(childUri)
+        } else {
+            context.contentResolver.openInputStream(uri)
+        }
+
+        inputStream?.use { input ->
             cacheFile.outputStream().use { output -> input.copyTo(output) }
         } ?: throw IllegalStateException("Cannot read book from storage")
         return cacheFile.absolutePath

@@ -449,21 +449,17 @@ private fun LibraryContents(
                     key = { i -> libraryItems[i].id }
                 ) { i ->
                     val item = libraryItems[i]
-                    if (viewModel.storageManager.bookExists(item.filePath)) {
-                        LibraryLazyItem(
-                            modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
-                            item = item,
-                            snackBarHostState = snackBarHostState,
-                            navController = navController,
-                            viewModel = viewModel,
-                            settingsVm = settingsVm,
-                            storageManager = viewModel.storageManager,
-                            isSelectionMode = isSelectionMode,
-                            isSelected = selectedIds.contains(item.id)
-                        )
-                    } else {
-                        viewModel.deleteItemFromDB(item)
-                    }
+                    LibraryLazyItem(
+                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
+                        item = item,
+                        snackBarHostState = snackBarHostState,
+                        navController = navController,
+                        viewModel = viewModel,
+                        settingsVm = settingsVm,
+                        storageManager = viewModel.storageManager,
+                        isSelectionMode = isSelectionMode,
+                        isSelected = selectedIds.contains(item.id)
+                    )
                 }
             }
 
@@ -501,7 +497,7 @@ private fun LibraryLazyItem(
             LibraryCard(
                 title = item.title,
                 author = item.authors,
-                storageManager.getFormattedFileSize(item.filePath),
+                item.language.ifEmpty { "—" },
                 item.getDownloadDate(),
                 isExternalBook = item.isImported,
                 isSelectionMode = true,
@@ -569,7 +565,7 @@ private fun LibraryLazyItem(
             LibraryCard(
                 title = item.title,
                 author = item.authors,
-                storageManager.getFormattedFileSize(item.filePath),
+                item.language.ifEmpty { "—" },
                 item.getDownloadDate(),
                 isExternalBook = item.isImported,
                 isSelectionMode = false,
